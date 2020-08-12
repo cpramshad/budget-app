@@ -5,6 +5,19 @@ var budgetController = (function() {
         this.id = id;
         this.description = description;
         this.value = value;
+        this.percentage = -1;
+    }
+
+    Expense.prototype.calcPercentage = function(totalIncome) {
+        if (totalIncome > 0) {
+            this.percentage = Math.round((this.value / totalIncome) * 100);
+        } else {
+            this.percentage = -1;
+        }
+    }
+
+    Expense.prototype.getPercentage = function() {
+        return this.percentage;
     }
 
     var Income = function(id, description, value) {
@@ -83,8 +96,25 @@ var budgetController = (function() {
 
             // Calculate the  percentage of income that we spent
             if ( data.totals.inc > 0) {
-                data.percentage = (data.totals.exp / data.totals.inc) * 100;
+                data.percentage = Math.round( (data.totals.exp / data.totals.inc) * 100);
+            } else {
+                data.percentage = -1;
             }
+        },
+
+        calcPercentages: function() {
+
+            data.allItems.exp.forEach(function(cur) {
+                cur.calcPercentage(data.totals.inc);
+            });
+        },
+
+        getPercentages: function() {
+             
+            var allPerc = data.allItems.exp.map(function(cur) {
+                return cur.getPercentage();
+            });
+            return allPerc;
         },
 
         getBudget: function() {
@@ -119,7 +149,8 @@ var UIController = (function() {
         incomeLabel: '.budget__income--value',
         expenseLabel: '.budget__expenses--value',
         percentageLabel: '.budget__expenses--percentage',
-        container: '.container'
+        container: '.container',
+        expensesPercLabel: '.item__percentage'
     }
 
     return {
@@ -187,8 +218,39 @@ var UIController = (function() {
             if (obj.percentage > 0) {
                 document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage + '%';
             } else {
-                document.querySelector(DOMstrings.percentageLabel).textContent = '---'
+                document.querySelector(DOMstrings.percentageLabel).textContent = '---';
             }
+        },
+
+        displayPercentages: function(percentages) {
+
+            var fields = document.querySelectorAll(DOMstrings.expensesPercLabel);
+
+            // fields.forEach(function(cur, index) {
+            //     if (percentages[index] > 0) {
+            //         cur.textContent = percentages[index] + '%';
+            //     } else {
+            //         cur.textContent = '---';
+            //     }                
+            // })
+
+            //when lecture was taken, forEach was not avaiable for NodeList
+            //So created a custom for each for node list
+            
+            var nodeListForEach = function(list, callBack) {
+                for(var i = 0; i < list.length; i++) {
+                    callBack(list[i], i);
+                }
+            };
+
+            nodeListForEach(fields, function(current, index) {
+                if (percentages[index] > 0) {
+                    current.textContent = percentages[index] + '%'
+                } else {
+                    current.textContent = '---';
+                }                
+            });           
+
         },
 
         getDOMstrings: function() {
@@ -234,8 +296,13 @@ var controller = (function(BudgetCtrl, UICtrl) {
     var updatePercentages = function() {
 
         // 1. Calculate percentages
+         budgetController.calcPercentages();
+
         // 2. Read percentages from budget controller
-        // 3. Update the UI
+        var percentages = budgetController.getPercentages();
+
+        // 3. Update the UI with the percentages
+        UIController.displayPercentages(percentages);
     }
 
     var ctrlAddItem = function() {
